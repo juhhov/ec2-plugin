@@ -119,12 +119,24 @@ public class WindowsProcess {
             @Override
             public void run() {
                 try {
+                    final int EXCEPTION_LIMIT = 60;
+                    final int ONE_SECOND = 1000;
+                    int io_exception_count = 0;
                     byte[] buf = new byte[INPUT_BUFFER];
                     for (;;) {
                         int n = 0;
                         try {
                             n = toCallersStdin.read(buf);
+                            io_exception_count = 0;
                         } catch (IOException ioe) {
+                            // Stab for https://issues.jenkins-ci.org/browse/JENKINS-35982
+                            // If the IOException recurs 60 times in a row throw the exception.
+                            io_exception_count++;
+                            if (io_exception_count >= EXCEPTION_LIMIT) {
+                                throw ioe;
+                            }
+                            Thread.sleep(ONE_SECOND);
+
                             // it's safe to ignore IO Exception coming from
                             // Jenkins
                             // This can happen with PipedInputStream if the
